@@ -241,7 +241,7 @@ impl FmtDebug for CertificateData {
             .field("issuer_organization", &(self.issuer_organization()))
             .field("issuer_organizational_unit", &(self.issuer_organizational_unit()))
             .field("subject_name", &(self.subject_name()))
-            .field("subject_alternate", &(self.subject_alternate_names()))
+            .field("subject_alternate_names", &(self.subject_alternate_names()))
             .field("subject_country", &(self.subject_country()))
             .field("subject_state", &(self.subject_state()))
             .field("subject_organization", &(self.subject_organization()))
