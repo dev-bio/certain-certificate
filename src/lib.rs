@@ -1,7 +1,7 @@
-mod certificate;
-
+pub mod certificate;
 pub use certificate::{
     
+    CertificateAlternateName,
     CertificateValidity,
     CertificateData,
     Certificate,
