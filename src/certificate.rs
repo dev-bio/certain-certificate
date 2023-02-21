@@ -260,6 +260,7 @@ pub enum Certificate {
 }
 
 impl Certificate {
+    /// Parse a certificate from `DER` encoded data.
     pub fn parse(data: &[u8]) -> Option<Certificate> {
         let (pending, remaining, certificate) = if let Ok((remaining, certificate)) = X509Certificate::from_der(data) { 
             (false, remaining, certificate.tbs_certificate) 
