@@ -17,6 +17,10 @@ exclude = [
 ]
 
 [dependencies]
+webpki-roots = { version = "0.22.6" }
+webpki = { version = "0.22.0" }
+x509-parser = { version = "0.15.0" }
+rustls-native-certs = { version = "0.6.2" }
+rustls = { version = "0.21.1", features = ["dangerous_configuration"] }
 chrono = { version = "0.4.23", features = ["serde"] }
 serde = { version = "1.0.152", features = ["derive"] }
-x509-parser = "0.14.0"

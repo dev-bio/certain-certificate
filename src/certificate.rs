@@ -7,7 +7,7 @@ use std::{
         Debug as FmtDebug,
     },
 
-    net::{IpAddr},
+    net::{IpAddr}, time::SystemTime, ops::DerefMut,
 };
 
 use chrono::{
@@ -17,11 +17,28 @@ use chrono::{
     Utc,
 };
 
+use rustls_native_certs::{Certificate as TlsNativeCertificate};
+
+use rustls::{
+
+    server::{
+        AllowAnyAuthenticatedClient as TlsAllowAnyAuthenticatedClient, 
+        ClientCertVerifier as TlsClientCertVerifier,
+    },
+
+    OwnedTrustAnchor as TlsOwnedTrustAnchor,
+    RootCertStore as TlsRootCertStore,
+    Certificate as TlsCertificate,
+};
+
 use serde::{
 
     Deserialize, 
     Serialize,
 };
+
+use webpki::{TlsServerTrustAnchors};
+use webpki_roots::{TLS_SERVER_ROOTS};
 
 use x509_parser::prelude::{
 
@@ -421,6 +438,77 @@ impl Certificate {
         if pending { Some(Certificate::Pending(data)) } 
         else { Some(Certificate::Signed(data)) }
     }
+
+    pub fn verify_trust_chain_web_roots(&self, chain: &[Certificate]) -> bool {
+        let mut trust_store = TlsRootCertStore::empty();
+
+        let TlsServerTrustAnchors(anchors) = TLS_SERVER_ROOTS;
+        trust_store.add_server_trust_anchors(anchors.iter().map(|anchor| {
+            TlsOwnedTrustAnchor::from_subject_spki_name_constraints(anchor.subject, anchor.spki, anchor.name_constraints)
+        }));
+
+        let verifier = TlsAllowAnyAuthenticatedClient::new({
+            trust_store
+        });
+
+        let ref certificate = TlsCertificate(self.raw().to_owned());
+        let chain: Vec<TlsCertificate> = chain.iter().map(|certificate| {
+            TlsCertificate(certificate.raw().to_vec())
+        }).collect();
+
+        verifier.verify_client_cert(certificate, chain.as_slice(), SystemTime::now())
+            .is_ok()
+    }
+
+    pub fn verify_trust_chain_system_roots(&self, chain: &[Certificate]) -> bool {
+        if let Ok(native) = rustls_native_certs::load_native_certs() {
+            let mut trust_store = TlsRootCertStore::empty();
+
+            for TlsNativeCertificate(data) in native.iter() {
+                let ref root = TlsCertificate(data.to_vec());
+                if let Err(..) = trust_store.add(root) {
+                    continue
+                }
+            }
+
+            let verifier = TlsAllowAnyAuthenticatedClient::new({
+                trust_store
+            });
+
+            let ref certificate = TlsCertificate(self.raw().to_owned());
+            let chain: Vec<TlsCertificate> = chain.iter().map(|certificate| {
+                TlsCertificate(certificate.raw().to_vec())
+            }).collect();
+
+            return verifier.verify_client_cert(certificate, chain.as_slice(), SystemTime::now())
+                .is_ok()
+        }
+
+        false
+    }
+
+    pub fn verify_trust_chain(&self, chain: &[Certificate], roots: &[Certificate]) -> bool {
+        let mut trust_store = TlsRootCertStore::empty();
+
+        for root in roots.iter() {
+            let ref certificate = TlsCertificate(root.raw().to_owned());
+            if let Err(..) = trust_store.add(certificate) {
+                return false
+            }
+        }
+
+        let verifier = TlsAllowAnyAuthenticatedClient::new({
+            trust_store
+        });
+
+        let ref certificate = TlsCertificate(self.raw().to_owned());
+        let chain: Vec<TlsCertificate> = chain.iter().map(|certificate| {
+            TlsCertificate(certificate.raw().to_vec())
+        }).collect();
+
+        verifier.verify_client_cert(certificate, chain.as_slice(), SystemTime::now())
+            .is_ok()
+    } 
 
     pub fn authority(&self) -> bool {
         match self {
