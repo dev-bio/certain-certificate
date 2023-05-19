@@ -4,7 +4,7 @@
 
 __Utility__
 
-[![dependency status](https://deps.rs/crate/certain-certificate/0.1.1/status.svg)](https://deps.rs/crate/certain-certificate/0.1.1)
+[![dependency status](https://deps.rs/crate/certain-certificate/0.2.0/status.svg)](https://deps.rs/crate/certain-certificate/0.2.0)
 [![Documentation](https://docs.rs/certain-certificate/badge.svg)](https://docs.rs/certain-certificate)
 [![License](https://img.shields.io/crates/l/certain-certificate.svg)](https://choosealicense.com/licenses/mit/)
 
@@ -19,7 +19,7 @@ To use `certain-certificate`, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-certain-certificate = "0.1.1"
+certain-certificate = "0.2.0"
 ```
 
 ## Contributing
