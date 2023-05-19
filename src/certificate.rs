@@ -264,7 +264,6 @@ impl FmtDebug for CertificateData {
             .field("subject_organization", &(self.subject_organization()))
             .field("subject_organizational_unit", &(self.subject_organizational_unit()))
             .field("validity", &(self.validity()))
-            .field("serial", &(self.serial()))
             .finish()
     }
 }
