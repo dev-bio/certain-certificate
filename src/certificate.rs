@@ -7,7 +7,8 @@ use std::{
         Debug as FmtDebug,
     },
 
-    net::{IpAddr}, time::SystemTime, ops::DerefMut,
+    time::{SystemTime},
+    net::{IpAddr},
 };
 
 use chrono::{
@@ -37,7 +38,6 @@ use serde::{
     Serialize,
 };
 
-use webpki::{TlsServerTrustAnchors};
 use webpki_roots::{TLS_SERVER_ROOTS};
 
 use x509_parser::prelude::{
@@ -143,7 +143,7 @@ pub struct CertificateData {
     pub(crate) subject_organizational_unit:Option<String>,
     pub(crate) validity: CertificateValidity,
     pub(crate) serial: Vec<u8>,
-    pub(crate) raw: Vec<u8>,
+    pub(crate) raw_der_encoded: Vec<u8>,
 }
 
 impl CertificateData {
@@ -243,8 +243,8 @@ impl CertificateData {
         self.serial.as_slice()
     }
 
-    pub fn raw(&self) -> &[u8] {
-        self.raw.as_slice()
+    pub fn raw_der_encoded(&self) -> &[u8] {
+        self.raw_der_encoded.as_slice()
     }
 }
 
@@ -413,7 +413,7 @@ impl Certificate {
 
         let serial = certificate.serial.to_bytes_be();
     
-        let raw = data[..(data.len() - remaining.len())].to_vec();
+        let raw_der_encoded = data[..(data.len() - remaining.len())].to_vec();
     
         let data = CertificateData {
     
@@ -431,7 +431,7 @@ impl Certificate {
             subject_organizational_unit,
             validity,
             serial,
-            raw,
+            raw_der_encoded,
         };
     
         if pending { Some(Certificate::Pending(data)) } 
@@ -441,21 +441,17 @@ impl Certificate {
     pub fn verify_trust_chain_web_roots(&self, chain: &[Certificate]) -> bool {
         let mut trust_store = TlsRootCertStore::empty();
 
-        let TlsServerTrustAnchors(anchors) = TLS_SERVER_ROOTS;
-        trust_store.add_server_trust_anchors(anchors.iter().map(|anchor| {
+        trust_store.add_server_trust_anchors(TLS_SERVER_ROOTS.0.iter().map(|anchor| {
             TlsOwnedTrustAnchor::from_subject_spki_name_constraints(anchor.subject, anchor.spki, anchor.name_constraints)
         }));
 
-        let verifier = TlsAllowAnyAuthenticatedClient::new({
-            trust_store
-        });
-
-        let ref certificate = TlsCertificate(self.raw().to_owned());
+        let ref certificate = TlsCertificate(self.raw_der_encoded().to_owned());
         let chain: Vec<TlsCertificate> = chain.iter().map(|certificate| {
-            TlsCertificate(certificate.raw().to_vec())
+            TlsCertificate(certificate.raw_der_encoded().to_vec())
         }).collect();
 
-        verifier.verify_client_cert(certificate, chain.as_slice(), SystemTime::now())
+        TlsAllowAnyAuthenticatedClient::new(trust_store)
+            .verify_client_cert(certificate, chain.as_slice(), SystemTime::now())
             .is_ok()
     }
 
@@ -470,16 +466,13 @@ impl Certificate {
                 }
             }
 
-            let verifier = TlsAllowAnyAuthenticatedClient::new({
-                trust_store
-            });
-
-            let ref certificate = TlsCertificate(self.raw().to_owned());
+            let ref certificate = TlsCertificate(self.raw_der_encoded().to_owned());
             let chain: Vec<TlsCertificate> = chain.iter().map(|certificate| {
-                TlsCertificate(certificate.raw().to_vec())
+                TlsCertificate(certificate.raw_der_encoded().to_vec())
             }).collect();
 
-            return verifier.verify_client_cert(certificate, chain.as_slice(), SystemTime::now())
+            return TlsAllowAnyAuthenticatedClient::new(trust_store)
+                .verify_client_cert(certificate, chain.as_slice(), SystemTime::now())
                 .is_ok()
         }
 
@@ -490,22 +483,19 @@ impl Certificate {
         let mut trust_store = TlsRootCertStore::empty();
 
         for root in roots.iter() {
-            let ref certificate = TlsCertificate(root.raw().to_owned());
+            let ref certificate = TlsCertificate(root.raw_der_encoded().to_owned());
             if let Err(..) = trust_store.add(certificate) {
                 return false
             }
         }
 
-        let verifier = TlsAllowAnyAuthenticatedClient::new({
-            trust_store
-        });
-
-        let ref certificate = TlsCertificate(self.raw().to_owned());
+        let ref certificate = TlsCertificate(self.raw_der_encoded().to_owned());
         let chain: Vec<TlsCertificate> = chain.iter().map(|certificate| {
-            TlsCertificate(certificate.raw().to_vec())
+            TlsCertificate(certificate.raw_der_encoded().to_vec())
         }).collect();
 
-        verifier.verify_client_cert(certificate, chain.as_slice(), SystemTime::now())
+        TlsAllowAnyAuthenticatedClient::new(trust_store)
+            .verify_client_cert(certificate, chain.as_slice(), SystemTime::now())
             .is_ok()
     } 
 
@@ -607,10 +597,10 @@ impl Certificate {
         }
     }
 
-    pub fn raw(&self) -> &[u8] {
+    pub fn raw_der_encoded(&self) -> &[u8] {
         match self {
-            Certificate::Signed(data) => data.raw(),
-            Certificate::Pending(data) => data.raw(),
+            Certificate::Signed(data) => data.raw_der_encoded(),
+            Certificate::Pending(data) => data.raw_der_encoded(),
         }
     }
 }
